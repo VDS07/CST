@@ -1,0 +1,17 @@
+--- CyberShield Toolkit Report ---
+Module: HeaderChecker
+Target: example.com
+Date: 2026-06-05 18:51:38
+-----------------------------------
+
+{
+    "target": "https://example.com",
+    "found": [],
+    "missing": [
+        "HSTS",
+        "CSP",
+        "X-Frame-Options",
+        "X-XSS-Protection"
+    ],
+    "error": null
+}

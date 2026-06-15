@@ -1,0 +1,4 @@
+dnspython
+python-whois
+requests
+rich

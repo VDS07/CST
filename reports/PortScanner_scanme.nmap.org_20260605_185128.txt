@@ -1,0 +1,21 @@
+--- CyberShield Toolkit Report ---
+Module: PortScanner
+Target: scanme.nmap.org
+Date: 2026-06-05 18:51:28
+-----------------------------------
+
+{
+    "target": "scanme.nmap.org",
+    "open_ports": [
+        {
+            "port": 22,
+            "status": "OPEN",
+            "service": "SSH"
+        },
+        {
+            "port": 80,
+            "status": "OPEN",
+            "service": "HTTP"
+        }
+    ]
+}
