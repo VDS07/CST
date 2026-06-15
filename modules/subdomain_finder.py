@@ -67,7 +67,7 @@ def _probe_http(fqdn: str) -> Tuple[Optional[int], str]:
         elapsed = time.time() - start
         return resp.status_code, f"{elapsed:.2f}s"
     except Exception:
-        return None, "—"
+        return None, "-"
 
 
 def run(
@@ -125,7 +125,7 @@ def run(
             "subdomain": fqdn,
             "ip": ip,
             "status_code": None,
-            "response_time": "—",
+            "response_time": "-",
         }
         if probe_http:
             status, resp_time = _probe_http(fqdn)

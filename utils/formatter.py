@@ -18,7 +18,7 @@ __version__ = "1.0.0"
 console = Console()
 
 
-# ── Console output helpers ──────────────────────────────────────────
+# -- Console output helpers ---------------------------------------------------
 
 def print_banner():
     """Display the application banner with version info."""
@@ -32,36 +32,36 @@ def print_banner():
 """
     console.print(banner_art, style="bold cyan")
     console.print(
-        f"  [dim]CyberShield Toolkit v{__version__} — Network Recon & Security Audit[/dim]"
+        f"  [dim]CyberShield Toolkit v{__version__} - Network Recon & Security Audit[/dim]"
     )
     console.print("=" * 60, style="bold cyan")
 
 
 def print_success(message: str):
     """Print a success message with a green prefix."""
-    console.print(f"[bold green] ✓ [/bold green] {message}")
+    console.print(f"[bold green][+][/bold green] {message}")
 
 
 def print_error(message: str):
     """Print an error message with a red prefix."""
-    console.print(f"[bold red] ✗ [/bold red] {message}")
+    console.print(f"[bold red][-][/bold red] {message}")
 
 
 def print_warning(message: str):
     """Print a warning message with a yellow prefix."""
-    console.print(f"[bold yellow] ⚠ [/bold yellow] {message}")
+    console.print(f"[bold yellow][!][/bold yellow] {message}")
 
 
 def print_info(message: str):
     """Print an informational message with a blue prefix."""
-    console.print(f"[bold blue] ℹ [/bold blue] {message}")
+    console.print(f"[bold blue][*][/bold blue] {message}")
 
 
 def print_section(title: str):
     """Print a visual section divider."""
     console.print()
-    console.print(f"─── {title} ", style="bold cyan", end="")
-    console.print("─" * max(1, 55 - len(title)), style="dim cyan")
+    console.print(f"--- {title} ", style="bold cyan", end="")
+    console.print("-" * max(1, 55 - len(title)), style="dim cyan")
 
 
 def create_table(title: str, columns: List[str]) -> Table:
@@ -88,7 +88,7 @@ def create_table(title: str, columns: List[str]) -> Table:
     return table
 
 
-# ── Human-readable text report renderer ────────────────────────────
+# -- Human-readable text report renderer --------------------------------------
 
 _SEPARATOR = "+" + "-" * 78 + "+"
 _HEADER_LINE = "|{:^78s}|"
@@ -101,7 +101,7 @@ def _render_header(module_name: str, target: str) -> List[str]:
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     lines = [
         _SEPARATOR,
-        _HEADER_LINE.format("CYBERSHIELD TOOLKIT — SCAN REPORT"),
+        _HEADER_LINE.format("CYBERSHIELD TOOLKIT - SCAN REPORT"),
         _SEPARATOR,
         _ROW_FORMAT.format("Module", module_name),
         _ROW_FORMAT.format("Target", target),
@@ -242,10 +242,10 @@ def render_text_report(module_name: str, target: str, results: Dict[str, Any]) -
         else:
             rows = []
             for h in results.get("headers", []):
-                status = "✓ Present" if h.get("present") else "✗ Missing"
+                status = "Present" if h.get("present") else "Missing"
                 severity = h.get("severity", "")
                 value = h.get("value", "") if h.get("present") else ""
-                rows.append([h.get("header", ""), status, severity, value[:20] if value else "—"])
+                rows.append([h.get("header", ""), status, severity, value[:20] if value else "-"])
             if rows:
                 lines += _render_list_table(
                     "SECURITY HEADERS ANALYSIS",

@@ -1,5 +1,5 @@
 """
-CyberShield Toolkit — main entry point.
+CyberShield Toolkit - main entry point.
 
 A modular Python toolkit for network reconnaissance and security
 auditing. Supports both an interactive CLI menu and direct
@@ -60,7 +60,7 @@ MODULE_REGISTRY = {
 }
 
 
-# ── Report persistence ──────────────────────────────────────────────
+# -- Report persistence -------------------------------------------------------
 
 def save_report(
     module_name: str,
@@ -111,7 +111,7 @@ def save_report(
         print_error(f"Could not save report: {exc}")
 
 
-# ── Module runners (console display) ────────────────────────────────
+# -- Module runners (console display) -----------------------------------------
 
 def run_port_scanner(target: str, output_dir: str = "reports"):
     """Execute port scan and display results."""
@@ -205,9 +205,9 @@ def run_header_checker(target: str, output_dir: str = "reports"):
         table = create_table("Security Headers Analysis", ["Header", "Status", "Severity"])
         for h in results.get("headers", []):
             if h["present"]:
-                status_str = "[bold green]✓ Present[/bold green]"
+                status_str = "[bold green]Present[/bold green]"
             else:
-                status_str = "[bold red]✗ Missing[/bold red]"
+                status_str = "[bold red]Missing[/bold red]"
 
             severity = h.get("severity", "")
             if severity == "Critical":
@@ -239,12 +239,12 @@ def run_subdomain_finder(target: str, output_dir: str = "reports"):
             ["Subdomain", "IP Address", "HTTP Status", "Response Time"],
         )
         for s in subs:
-            status = str(s.get("status_code", "—")) if s.get("status_code") else "—"
+            status = str(s.get("status_code", "-")) if s.get("status_code") else "-"
             table.add_row(
                 s["subdomain"],
                 s["ip"],
                 status,
-                s.get("response_time", "—"),
+                s.get("response_time", "-"),
             )
         console.print(table)
     else:
@@ -318,7 +318,7 @@ def run_tech_detector(target: str, output_dir: str = "reports"):
     save_report("TechDetector", target, results, output_dir)
 
 
-# ── Interactive menu ────────────────────────────────────────────────
+# -- Interactive menu ---------------------------------------------------------
 
 MENU_OPTIONS = [
     ("1", "Port Scanner",              run_port_scanner),
@@ -374,13 +374,13 @@ def interactive_menu(output_dir: str = "reports"):
         console.print()
 
 
-# ── CLI argument parsing ────────────────────────────────────────────
+# -- CLI argument parsing -----------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         prog="cybershield",
-        description="CyberShield Toolkit — Network Reconnaissance & Security Auditing",
+        description="CyberShield Toolkit - Network Reconnaissance & Security Auditing",
         epilog="Example: python main.py --module port_scanner --target scanme.nmap.org",
     )
     parser.add_argument(
@@ -410,7 +410,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# ── Module dispatcher ───────────────────────────────────────────────
+# -- Module dispatcher --------------------------------------------------------
 
 RUNNERS = {
     "port_scanner":     run_port_scanner,
