@@ -1,63 +1,121 @@
+"""
+Port Scanner module for CyberShield Toolkit.
+
+Performs multi-threaded TCP connect scanning across a configurable
+port range. Each port is probed in its own thread using a non-blocking
+socket with a short timeout, and results are aggregated into a sorted
+list of open ports with service name resolution.
+"""
+
 import socket
-from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any, Optional, Tuple
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, Optional, Tuple
 from utils.logger import setup_logger
 
 logger = setup_logger("port_scanner")
 
-def scan_port(target: str, port: int) -> Optional[Tuple[int, str, str]]:
+# Well-known port range defaults
+DEFAULT_START_PORT = 1
+DEFAULT_END_PORT = 1024
+DEFAULT_TIMEOUT = 0.5
+DEFAULT_WORKERS = 100
+
+
+def scan_port(target: str, port: int, timeout: float) -> Optional[Tuple[int, str, str]]:
     """
-    Attempts to connect to a specific port on the target.
-    Returns a tuple of (port, status, service) if open, otherwise None.
+    Attempt a TCP connection to a single port on the target host.
+
+    Args:
+        target: Hostname or IP address to probe.
+        port: TCP port number to connect to.
+        timeout: Connection timeout in seconds.
+
+    Returns:
+        A tuple of ``(port, status, service)`` if the port is open,
+        or ``None`` if the connection was refused or timed out.
     """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(0.5)
         result = sock.connect_ex((target, port))
         if result == 0:
             try:
                 service = socket.getservbyport(port, "tcp")
-            except socket.error:
-                service = "Unknown"
-            sock.close()
+            except OSError:
+                service = "unknown"
             return port, "OPEN", service
+    except socket.timeout:
+        logger.debug(f"Timeout on port {port}")
+    except OSError as exc:
+        logger.debug(f"Error scanning port {port} on {target}: {exc}")
+    finally:
         sock.close()
-    except Exception as e:
-        logger.debug(f"Error scanning port {port} on {target}: {e}")
     return None
 
-def run(target: str) -> Dict[str, Any]:
+
+def run(
+    target: str,
+    start_port: int = DEFAULT_START_PORT,
+    end_port: int = DEFAULT_END_PORT,
+    timeout: float = DEFAULT_TIMEOUT,
+    max_workers: int = DEFAULT_WORKERS,
+) -> Dict[str, Any]:
     """
-    Scans ports 1-1024 on the target domain/IP.
-    Returns a structured dictionary with the scan results.
+    Scan a range of TCP ports on the target and return open ones.
+
+    Args:
+        target: Hostname or IP address to scan.
+        start_port: First port in the scan range (inclusive).
+        end_port: Last port in the scan range (inclusive).
+        timeout: Per-port connection timeout in seconds.
+        max_workers: Maximum number of concurrent scanning threads.
+
+    Returns:
+        A dictionary containing the target, open ports list
+        (sorted by port number), port range metadata, and elapsed time.
     """
-    logger.info(f"Starting port scan on target: {target}")
-    
+    logger.info(f"Starting port scan on {target} [{start_port}-{end_port}]")
+
     results: Dict[str, Any] = {
         "target": target,
-        "open_ports": []
+        "ports_scanned": f"{start_port}-{end_port}",
+        "open_ports": [],
+        "scan_duration_seconds": 0.0,
     }
-    
-    # Scanning ports 1-1024
-    with ThreadPoolExecutor(max_workers=50) as executor:
-        futures = [executor.submit(scan_port, target, port) for port in range(1, 1025)]
-        for future in futures:
-            res = future.result()
-            if res:
-                port, status, service = res
+
+    start_time = time.time()
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(scan_port, target, port, timeout): port
+            for port in range(start_port, end_port + 1)
+        }
+        for future in as_completed(futures):
+            port_result = future.result()
+            if port_result:
+                port_num, status, service = port_result
                 results["open_ports"].append({
-                    "port": port,
+                    "port": port_num,
                     "status": status,
-                    "service": service.upper()
+                    "service": service.upper(),
                 })
-                logger.debug(f"Discovered open port: {port}/tcp ({service})")
-                
+                logger.debug(f"Open: {port_num}/tcp ({service})")
+
+    elapsed = time.time() - start_time
+    results["scan_duration_seconds"] = round(elapsed, 2)
+
+    # Sort by port number for clean output
+    results["open_ports"].sort(key=lambda p: p["port"])
+
     if not results["open_ports"]:
-        logger.info("No open ports found in range 1-1024.")
-        
+        logger.info(f"No open ports found in range {start_port}-{end_port}.")
+    else:
+        logger.info(f"Found {len(results['open_ports'])} open port(s) in {elapsed:.2f}s.")
+
     return results
 
+
 if __name__ == "__main__":
-    # Test
     from pprint import pprint
     pprint(run("scanme.nmap.org"))

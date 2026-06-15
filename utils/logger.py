@@ -1,31 +1,80 @@
+"""
+Logging configuration for CyberShield Toolkit.
+
+Sets up a dual-output logger that writes detailed debug logs to a
+rotating file and only surfaces warnings and above to the console
+via rich markup. Log level can be overridden with the
+``CYBERSHIELD_LOG_LEVEL`` environment variable.
+"""
+
 import logging
 import os
+from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
 
-def setup_logger(name: str) -> logging.Logger:
+
+_LOG_DIR = "logs"
+_LOG_FILE = os.path.join(_LOG_DIR, "cybershield.log")
+_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+_BACKUP_COUNT = 3
+_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def setup_logger(name: str, verbose: bool = False) -> logging.Logger:
     """
-    Sets up a logger that logs to both a file and the rich console.
+    Create or retrieve a named logger with file and console handlers.
+
+    On first call for a given *name*, two handlers are attached:
+
+    * **RotatingFileHandler** – writes all DEBUG-level messages to
+      ``logs/cybershield.log`` with automatic rotation at 5 MB.
+    * **RichHandler** – renders WARNING+ messages to the terminal.
+      When *verbose* is ``True`` the console threshold drops to DEBUG.
+
+    Subsequent calls with the same *name* return the cached logger
+    without adding duplicate handlers.
+
+    Args:
+        name: Logger namespace (typically the module name).
+        verbose: If True, console output includes DEBUG messages.
+
+    Returns:
+        A fully configured :class:`logging.Logger` instance.
     """
-    if not os.path.exists("logs"):
-        os.makedirs("logs")
+    env_level = os.environ.get("CYBERSHIELD_LOG_LEVEL", "").upper()
+    log_level = getattr(logging, env_level, logging.DEBUG)
+
+    os.makedirs(_LOG_DIR, exist_ok=True)
 
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(log_level)
 
-    if not logger.handlers:
-        # File handler for detailed debug logs
-        file_handler = logging.FileHandler("logs/cybershield.log", encoding="utf-8")
-        file_handler.setLevel(logging.DEBUG)
-        file_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        file_handler.setFormatter(file_format)
-        
-        # Rich handler for console (warnings/errors mostly or debug if needed)
-        console_handler = RichHandler(rich_tracebacks=True, markup=True)
-        console_handler.setLevel(logging.WARNING) # Only log warnings and errors to console by default
-        console_format = logging.Formatter("%(message)s")
-        console_handler.setFormatter(console_format)
-        
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+    if logger.handlers:
+        return logger
+
+    # Rotating file handler
+    file_handler = RotatingFileHandler(
+        _LOG_FILE,
+        maxBytes=_MAX_BYTES,
+        backupCount=_BACKUP_COUNT,
+        encoding="utf-8",
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_DATE_FORMAT))
+
+    # Rich console handler
+    console_level = logging.DEBUG if verbose else logging.WARNING
+    console_handler = RichHandler(
+        rich_tracebacks=True,
+        markup=True,
+        show_time=False,
+        show_path=False,
+    )
+    console_handler.setLevel(console_level)
+    console_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
     return logger

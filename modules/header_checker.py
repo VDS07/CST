@@ -1,57 +1,103 @@
+"""
+Security Headers Checker module for CyberShield Toolkit.
+
+Evaluates HTTP/HTTPS endpoints against a curated list of security-critical
+response headers. Each header is assigned a severity level (Critical,
+Warning, or Info) and its actual value is captured when present.
+"""
+
 import requests
 import urllib3
-from typing import Dict, Any
+from typing import Any, Dict, List
 from utils.logger import setup_logger
+from utils.validators import normalize_url
 
-# Suppress insecure request warnings for https without verify
+# Suppress noisy SSL warnings for targets without valid certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = setup_logger("header_checker")
 
+# Header definitions: (header_name, display_name, severity)
+SECURITY_HEADERS = [
+    ("Strict-Transport-Security", "HSTS", "Critical"),
+    ("Content-Security-Policy", "CSP", "Critical"),
+    ("X-Frame-Options", "X-Frame-Options", "Critical"),
+    ("X-Content-Type-Options", "X-Content-Type-Options", "Warning"),
+    ("X-XSS-Protection", "X-XSS-Protection", "Warning"),
+    ("Referrer-Policy", "Referrer-Policy", "Warning"),
+    ("Permissions-Policy", "Permissions-Policy", "Info"),
+    ("Cross-Origin-Opener-Policy", "COOP", "Info"),
+]
+
+REQUEST_TIMEOUT = 10  # seconds
+
+
 def run(target: str) -> Dict[str, Any]:
     """
-    Checks the target URL for common security headers.
-    Returns a structured dictionary with the found and missing headers.
+    Check a target URL for the presence of security-critical HTTP headers.
+
+    The function sends a GET request to the target (following redirects)
+    and inspects the response headers against a predefined checklist.
+    Each header is reported with its presence status, severity level,
+    and actual value when present.
+
+    Args:
+        target: Domain name or full URL to analyse.
+
+    Returns:
+        A dictionary containing a list of header analysis results,
+        or an ``error`` key if the request failed.
     """
-    # Ensure it has a scheme
-    if not target.startswith("http://") and not target.startswith("https://"):
-        target_url = "https://" + target
-    else:
-        target_url = target
-        
-    logger.info(f"Starting security headers check for target: {target_url}")
-    
+    target_url = normalize_url(target)
+    logger.info(f"Checking security headers for: {target_url}")
+
     results: Dict[str, Any] = {
         "target": target_url,
-        "found": [],
-        "missing": [],
-        "error": None
+        "headers": [],
+        "score": 0,
+        "max_score": len(SECURITY_HEADERS),
+        "error": None,
     }
-    
-    headers_to_check = {
-        "Strict-Transport-Security": "HSTS",
-        "Content-Security-Policy": "CSP",
-        "X-Frame-Options": "X-Frame-Options",
-        "X-XSS-Protection": "X-XSS-Protection"
-    }
-    
+
     try:
-        response = requests.get(target_url, verify=False, timeout=10)
-        headers = response.headers
-        
-        for header, name in headers_to_check.items():
-            if header in headers:
-                results["found"].append(name)
-            else:
-                results["missing"].append(name)
-                
-        logger.debug(f"Checked headers for {target_url}. Found {len(results['found'])}.")
-                
-    except Exception as e:
-        logger.error(f"Error fetching headers: {e}")
-        results["error"] = str(e)
-        
+        response = requests.get(
+            target_url,
+            verify=False,
+            timeout=REQUEST_TIMEOUT,
+            allow_redirects=True,
+        )
+        resp_headers = response.headers
+
+        found_count = 0
+        for header_key, display_name, severity in SECURITY_HEADERS:
+            present = header_key in resp_headers
+            entry = {
+                "header": display_name,
+                "present": present,
+                "severity": severity,
+                "value": resp_headers.get(header_key, "") if present else "",
+            }
+            results["headers"].append(entry)
+            if present:
+                found_count += 1
+
+        results["score"] = found_count
+        logger.debug(
+            f"Headers checked: {found_count}/{len(SECURITY_HEADERS)} present."
+        )
+
+    except requests.ConnectionError as exc:
+        logger.error(f"Connection failed: {exc}")
+        results["error"] = f"Connection failed: {exc}"
+    except requests.Timeout:
+        logger.error("Request timed out.")
+        results["error"] = "Request timed out."
+    except Exception as exc:
+        logger.error(f"Unexpected error: {exc}")
+        results["error"] = str(exc)
+
     return results
+
 
 if __name__ == "__main__":
     from pprint import pprint
